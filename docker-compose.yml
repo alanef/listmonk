@@ -9,7 +9,7 @@ x-db-credentials: &db-credentials                             # Use the default 
 services:
   # listmonk app
   app:
-    image: docker.io/alanef/listmonk:v4.0.0-staticdir
+    image: docker.io/alanef/listmonk:v4.1.0-stop-reoptin
     container_name: listmonk_app
     restart: unless-stopped
     ports:
