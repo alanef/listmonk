@@ -1,0 +1,76 @@
+# Test docker-compose for alanef/listmonk fork
+# Tests custom static directory via LISTMONK_static_dir env var
+
+x-db-credentials: &db-credentials
+  POSTGRES_USER: &db-user listmonk
+  POSTGRES_PASSWORD: &db-password listmonk
+  POSTGRES_DB: &db-name listmonk
+
+services:
+  app:
+    image: alanef/listmonk:v4.0.0-staticdir
+    container_name: listmonk_app_test
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    networks:
+      - listmonk
+    depends_on:
+      - db
+      - mailpit
+    command: [sh, -c, "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && ./listmonk --config ''"]
+
+    environment:
+      LISTMONK_app__address: 0.0.0.0:9000
+      LISTMONK_db__user: *db-user
+      LISTMONK_db__password: *db-password
+      LISTMONK_db__database: *db-name
+      LISTMONK_db__host: db
+      LISTMONK_db__port: 5432
+      LISTMONK_db__ssl_mode: disable
+      LISTMONK_db__max_open: 25
+      LISTMONK_db__max_idle: 25
+      LISTMONK_db__max_lifetime: 300s
+      TZ: Etc/UTC
+      LISTMONK_ADMIN_USER: admin
+      LISTMONK_ADMIN_PASSWORD: adminpass
+      # Custom static directory - mount your modified templates here
+      LISTMONK_static_dir: /custom-static
+    volumes:
+      - ./uploads:/listmonk/uploads:rw
+      - /home/alan/projects/github.com/alanef/listmonk-static/static:/custom-static:ro
+
+  # Mailpit - catches all emails for testing
+  mailpit:
+    image: axllent/mailpit
+    container_name: listmonk_mailpit
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP
+    networks:
+      - listmonk
+
+  db:
+    image: postgres:17-alpine
+    container_name: listmonk_db_test
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5433:5432"
+    networks:
+      - listmonk
+    environment:
+      <<: *db-credentials
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listmonk"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    volumes:
+      - listmonk-data-test:/var/lib/postgresql/data
+
+networks:
+  listmonk:
+
+volumes:
+  listmonk-data-test:
